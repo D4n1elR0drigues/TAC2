@@ -1,0 +1,217 @@
+Descrição do Jogo:
+
+O jogo de damas, também conhecido como jogo de xadrez, é um jogo de tabuleiro estratégico para dois jogadores. O tabuleiro é composto por 64 casas alternadamente claras e escuras, posicionadas em uma grade de 8x8. Cada jogador começa com 12 peças, colocadas nas fileiras mais próximas a eles. O objetivo é capturar todas as peças do oponente ou bloqueá-las de forma que não possam mais se mover.
+Os jogadores movem suas peças diagonalmente ao longo das casas escuras. As peças regulares podem mover-se apenas para frente, enquanto as damas (peças promovidas) podem mover-se para frente ou para trás. Uma peça pode capturar uma peça adversária saltando sobre ela diagonalmente para uma casa vazia adjacente, após a qual a peça capturada é removida do tabuleiro. Se uma peça alcançar a última fileira do oponente, ela é promovida a dama.
+
+
+Classes:
+
+Display: Responsável pela inicialização e gerenciamento da interface gráfica do jogo.
+Event: Lida com eventos de entrada, como cliques do mouse.
+Images: Carrega e gerencia as imagens utilizadas no jogo, como o tabuleiro e as peças.
+Player: Representa um jogador e controla de quem é o turno atual.
+Tabuleiro (Board): Gerencia o estado atual do tabuleiro, incluindo a posição das peças, validação de movimentos e renderização gráfica.
+Main Loop: Controla o fluxo principal do jogo, incluindo a detecção de eventos, atualização do estado do jogo e renderização gráfica.
+
+
+Caso de Uso:
+
+Iniciar Jogo: O jogador inicia o jogo.
+Selecionar Peça: O jogador clica em uma de suas peças para selecioná-la.
+Mover Peça: O jogador escolhe uma posição válida para mover sua peça selecionada.
+Capturar Peça: Se possível, o jogador captura uma peça adversária saltando sobre ela.
+Promover Peça: Se uma peça alcançar a última fileira do oponente, ela é promovida a dama.
+Trocar de Turno: O turno passa para o próximo jogador após cada movimento.
+Verificar Fim de Jogo: O jogo termina quando um jogador não consegue mais fazer movimentos válidos ou capturas.
+Finalizar Jogo: O jogador encerra o jogo e sai da aplicação.
+
+
+Requisitos Funcionais:
+
+Inicialização do Jogo: O jogo deve iniciar corretamente, exibindo o tabuleiro e as peças na posição inicial.
+Movimentação das Peças: Os jogadores devem ser capazes de selecionar e mover suas peças de acordo com as regras do jogo.
+Captura de Peças: As peças devem ser capazes de capturar as peças adversárias ao pular sobre elas, quando apropriado.
+Promoção de Peças: As peças devem ser promovidas a damas quando alcançarem a última linha do tabuleiro.
+Alternância de Turno: O jogo deve alternar corretamente entre os turnos dos jogadores após cada movimento.
+Fim do Jogo: O jogo deve detectar quando um dos jogadores não pode mais fazer movimentos válidos ou capturas, encerrando a partida.
+Interface Gráfica: O jogo deve fornecer uma interface gráfica interativa e amigável para os jogadores.
+
+Requisitos Não Funcionais:
+Desempenho: O jogo deve ser responsivo e executar suavemente em sistemas com diferentes capacidades de hardware.
+Usabilidade: A interface gráfica deve ser intuitiva e fácil de usar, com controles claros para os jogadores.
+
+
+'''
+import pygame
+import sys
+from PIL import Image
+
+# Definições
+LARGURA, ALTURA = 500, 500
+MARGEM = 39  # Espaço entre o tabuleiro e a janela
+LINHAS, COLUNAS = 8, 8
+TAMANHO_QUADRADO = (ALTURA - 2 * MARGEM) // LINHAS
+
+# Cores
+BRANCO = (255, 255, 255)
+PRETO = (0, 0, 0)
+CINZA = (128, 128, 128)
+
+# Direções possíveis para movimento das peças
+DIRECOES = {
+    "preto": [(1, -1), (1, 1)],
+    "branco": [(-1, -1), (-1, 1)]
+}
+
+# Classe para o tabuleiro
+class Tabuleiro:
+    def __init__(self):
+        self.tabuleiro = [[None] * COLUNAS for _ in range(LINHAS)]
+        self.mascaras_peca = {}  # Dicionário de máscaras para as peças
+        self.carregar_imagens()
+        self.inicializar_pecas()
+        self.peca_selecionada = None
+        self.linha_peca_selecionada = None
+        self.coluna_peca_selecionada = None
+
+    def carregar_imagens(self):
+        imagem_tabuleiro_original = Image.open("Imagens/imagemTabuleiro.PNG")
+        self.imagem_tabuleiro = imagem_tabuleiro_original.resize((LARGURA, ALTURA))
+
+        sprites_imagem = pygame.image.load('Sprites/pecas.png').convert_alpha() 
+
+        imagem_peca_branca_original = sprites_imagem.subsurface(pygame.Rect(130, 103, 190, 190))
+        self.imagem_peca_branca = pygame.transform.scale(imagem_peca_branca_original, (TAMANHO_QUADRADO, TAMANHO_QUADRADO))
+
+        imagem_peca_preto_original = sprites_imagem.subsurface(pygame.Rect(130, 378, 190, 190))
+        self.imagem_peca_preto = pygame.transform.scale(imagem_peca_preto_original, (TAMANHO_QUADRADO, TAMANHO_QUADRADO))
+
+        imagem_peca_branca_dama = sprites_imagem.subsurface(pygame.Rect(401, 103, 190, 190))
+        self.imagem_peca_branca_dama = pygame.transform.scale(imagem_peca_branca_dama, (TAMANHO_QUADRADO, TAMANHO_QUADRADO))
+
+        imagem_peca_preto_dama = sprites_imagem.subsurface(pygame.Rect(401, 222, 190, 190))
+        self.imagem_peca_preto_dama = pygame.transform.scale(imagem_peca_preto_dama, (TAMANHO_QUADRADO, TAMANHO_QUADRADO))
+        
+        # Máscaras para colisão
+        self.mascaras_peca['branco'] = pygame.mask.from_surface(self.imagem_peca_branca)
+        self.mascaras_peca['preto'] = pygame.mask.from_surface(self.imagem_peca_preto)
+        self.mascaras_peca['branco_dama'] = pygame.mask.from_surface(self.imagem_peca_branca_dama)
+        self.mascaras_peca['preto_dama'] = pygame.mask.from_surface(self.imagem_peca_preto_dama)
+
+    def inicializar_pecas(self):
+        # Inicializar peças pretas
+        for linha in range(3):
+            for coluna in range(COLUNAS):
+                if (linha + coluna) % 2 == 1:
+                    self.tabuleiro[linha][coluna] = "preto"
+        # Inicializar peças brancas
+        for linha in range(LINHAS-1, LINHAS-4, -1):
+            for coluna in range(COLUNAS):
+                if (linha + coluna) % 2 == 1:
+                    self.tabuleiro[linha][coluna] = "branco"
+    
+    def criar_mascaras_peca(self):
+        for linha in range(LINHAS):
+            for coluna in range(COLUNAS):
+                peca = self.tabuleiro[linha][coluna]
+                if peca is not None:
+                    if peca not in self.mascaras_peca:
+                        imagem_peca = self.imagem_peca_branca if peca == 'branco' else self.imagem_peca_preto
+                        self.mascaras_peca[peca] = pygame.mask.from_surface(imagem_peca)
+
+    def desenhar(self, janela):
+        janela.blit(pygame.image.fromstring(self.imagem_tabuleiro.tobytes(), self.imagem_tabuleiro.size, self.imagem_tabuleiro.mode), (0, 0))
+        for linha in range(LINHAS):
+            for coluna in range(COLUNAS):
+                peca = self.tabuleiro[linha][coluna]
+                if peca == "preto":
+                    janela.blit(self.imagem_peca_preto, ((coluna * TAMANHO_QUADRADO) + MARGEM, (linha * TAMANHO_QUADRADO) + MARGEM))
+                elif peca == "branco":
+                    janela.blit(self.imagem_peca_branca, ((coluna * TAMANHO_QUADRADO) + MARGEM, (linha * TAMANHO_QUADRADO) + MARGEM))
+                elif peca == "preto_dama":
+                    janela.blit(self.imagem_peca_preto_dama, ((coluna * TAMANHO_QUADRADO) + MARGEM, (linha * TAMANHO_QUADRADO) + MARGEM))
+                elif peca == "branco_dama":
+                    janela.blit(self.imagem_peca_branca_dama, ((coluna * TAMANHO_QUADRADO) + MARGEM, (linha * TAMANHO_QUADRADO) + MARGEM))
+
+    def obter_linha_coluna_do_mouse(self, pos):
+        x, y = pos
+        linha = (y - MARGEM) // TAMANHO_QUADRADO
+        coluna = (x - MARGEM) // TAMANHO_QUADRADO
+        return linha, coluna
+
+    def movimento_valido(self, linha_inicial, coluna_inicial, linha_final, coluna_final):
+        if not (0 <= linha_final < LINHAS and 0 <= coluna_final < COLUNAS):
+            return False
+        if self.tabuleiro[linha_final][coluna_final] is not None:
+            return False
+        peca = self.tabuleiro[linha_inicial][coluna_inicial]
+        if peca == "branco":
+            return linha_final == linha_inicial - 1 and abs(coluna_final - coluna_inicial) == 1 and not self.verificar_colisao_mascara(linha_final, coluna_final)
+        elif peca == "preto":
+            return linha_final == linha_inicial + 1 and abs(coluna_final - coluna_inicial) == 1 and not self.verificar_colisao_mascara(linha_final, coluna_final)
+        elif peca == "branco_dama" or peca == "preto_dama":
+            return abs(linha_final - linha_inicial) == 1 and abs(coluna_final - coluna_inicial) == 1 and not self.verificar_colisao_mascara(linha_final, coluna_final)
+        return False
+
+    def mover_peca(self, linha_inicial, coluna_inicial, linha_final, coluna_final):
+        self.tabuleiro[linha_final][coluna_final] = self.tabuleiro[linha_inicial][coluna_inicial]
+        peca = self.tabuleiro[linha_final][coluna_final]
+        if linha_final == 0 and peca == "preto":
+            self.tabuleiro[linha_final][coluna_final] = "preto_dama"
+        elif linha_final == LINHAS - 1 and peca == "branco":
+            self.tabuleiro[linha_final][coluna_final] = "branco_dama"
+        self.tabuleiro[linha_inicial][coluna_inicial] = None
+
+    def verificar_colisao_mascara(self, linha, coluna):
+        for peca, mascara in self.mascaras_peca.items():
+            if self.peca_selecionada is not None and self.tabuleiro[linha][coluna] is not None:
+                if mascara.overlap_area(self.mascaras_peca[self.tabuleiro[linha][coluna]], (coluna*TAMANHO_QUADRADO - self.coluna_peca_selecionada*TAMANHO_QUADRADO, linha*TAMANHO_QUADRADO - self.linha_peca_selecionada*TAMANHO_QUADRADO)) is not None:
+                    return True
+        return False
+
+# Função principal
+def principal():
+    pygame.init()
+    janela = pygame.display.set_mode((LARGURA, ALTURA))
+    pygame.display.set_caption("Jogo de Damas")
+    relogio = pygame.time.Clock()
+
+    tabuleiro = Tabuleiro()
+    tabuleiro.criar_mascaras_peca()
+
+    turno = 'preto'  # O turno inicial é do jogador preto
+    executando = True
+    while executando:
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                executando = False
+            elif evento.type == pygame.MOUSEBUTTONDOWN:
+                posicao = pygame.mouse.get_pos()
+                linha, coluna = tabuleiro.obter_linha_coluna_do_mouse(posicao)
+                if tabuleiro.peca_selecionada is None:
+                    if tabuleiro.tabuleiro[linha][coluna] is not None and tabuleiro.tabuleiro[linha][coluna].startswith(turno):
+                        tabuleiro.peca_selecionada = tabuleiro.tabuleiro[linha][coluna]
+                        tabuleiro.linha_peca_selecionada = linha
+                        tabuleiro.coluna_peca_selecionada = coluna
+                else:
+                    if tabuleiro.movimento_valido(tabuleiro.linha_peca_selecionada, tabuleiro.coluna_peca_selecionada, linha, coluna) and not tabuleiro.verificar_colisao_mascara(linha, coluna):
+                        tabuleiro.mover_peca(tabuleiro.linha_peca_selecionada, tabuleiro.coluna_peca_selecionada, linha, coluna)
+                        if tabuleiro.tabuleiro[linha][coluna] == "preto" and linha == LINHAS - 1:
+                            tabuleiro.tabuleiro[linha][coluna] = "preto_dama"
+                        elif tabuleiro.tabuleiro[linha][coluna] == "branco" and linha == 0:
+                            tabuleiro.tabuleiro[linha][coluna] = "branco_dama"
+                        turno = 'branco' if turno == 'preto' else 'preto'
+                    tabuleiro.peca_selecionada = None
+
+        janela.fill(BRANCO)
+        tabuleiro.desenhar(janela)
+        pygame.display.update()
+        relogio.tick(60)
+
+    pygame.quit()
+    sys.exit()
+
+if __name__ == "__main__":
+    principal()
+'''
+
